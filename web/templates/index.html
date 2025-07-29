@@ -585,27 +585,41 @@
                 });
             document.getElementById("summary").innerHTML = summaryHtml;
 
-            // OCR Raw Data는 하단 OCR 컨테이너에 따로 렌더링
-            let ocrHtml = "";
+            // OCR Raw Data를 안전하게 렌더링
+            const wrapper = document.getElementById("ocr-data-wrapper");
+            wrapper.innerHTML = "";  // 기존 내용 초기화
+
             data.players.forEach((p, idx) => {
                 if (p.ocr_results && p.ocr_results.trim() !== "") {
                     const divId = `ocr_${idx}`;
-                    ocrHtml += `
-                        <div style="background:#f8f8f8; padding:6px; border-radius:5px;">
-                            <button onclick="toggleOcr('${divId}', this)" 
-                                    style="font-size:11px; padding:4px; width: 100%;">
-                                ${p.role} - Raw Data 보기
-                            </button>
-                            <div id="${divId}" style="display:none; margin-top: 4px; border:1px solid #ddd;">
-                                <pre style="white-space: pre-wrap; font-size: 11px; margin:0; max-height:none;">
-                                    ${p.ocr_results}
-                                </pre>
-                            </div>
-                        </div>
-                    `;
+
+                    // 컨테이너 div
+                    const container = document.createElement("div");
+                    container.style = "background:#f8f8f8; padding:6px; border-radius:5px;";
+
+                    // 버튼 생성
+                    const btn = document.createElement("button");
+                    btn.style = "font-size:11px; padding:4px; width: 100%;";
+                    btn.textContent = `${p.role} - Raw Data 보기`;
+                    btn.addEventListener("click", () => toggleOcr(divId, btn));
+
+                    // 숨김 div
+                    const hiddenDiv = document.createElement("div");
+                    hiddenDiv.id = divId;
+                    hiddenDiv.style = "display:none; margin-top: 4px; border:1px solid #ddd;";
+
+                    // <pre> 태그 생성 (textContent 사용 → 자동 escape)
+                    const pre = document.createElement("pre");
+                    pre.style = "white-space: pre-wrap; font-size: 11px; margin:0; max-height:none;";
+                    pre.textContent = p.ocr_results;
+
+                    // 조립
+                    hiddenDiv.appendChild(pre);
+                    container.appendChild(btn);
+                    container.appendChild(hiddenDiv);
+                    wrapper.appendChild(container);
                 }
             });
-            document.getElementById("ocr-data-wrapper").innerHTML = ocrHtml;
         }
         window.addEventListener("resize", () => {
             if (chart && originalData) {
