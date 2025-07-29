@@ -229,7 +229,7 @@ def process_ocr(file_path: str):
             print("[ERROR] 보스 정보 없음")
             return {"status": "fail", "error": f"이미지를 인식하지 못 했습니다 확인 후 다시 시도해주세요."}
 
-        battle_key = f"{record_info}_{battle_time}"
+        battle_key = f"{record_info}_{battle_time}_{boss.id}"
         battle = db.query(Battle).filter(Battle.battle_key == battle_key).first()
 
         if not battle:
