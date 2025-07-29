@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전투 분석기 로그</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+    <style>
+        /* 3패널 레이아웃 */
+        #container {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 20px;
+            margin-top: 20px;
+            align-items: start;
+            grid-template-columns: 1fr 2.5fr 1fr; /* 중앙 차트 영역 넓힘 */
+        }
+
+        /* 화면 작아지면 세로 정렬 */
+        @media (max-width: 900px) {
+            #container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* OCR Raw Data 하단 전체 너비 */
+        #ocr-container {
+            margin-top: 30px;
+        }
+
+        #ocr-data-wrapper {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr); /* 8개씩 고정 */
+            gap: 10px;
+            justify-items: stretch;
+        }
+
+        #ocr-data-wrapper > div {
+            min-width: 100px;
+        }
+        @media (max-width: 1200px) {
+            #ocr-data-wrapper {
+                grid-template-columns: repeat(4, 1fr);
+            }
+        }
+        @media (max-width: 768px) {
+            #ocr-data-wrapper {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        #search-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .row {
+            display: flex;
+            align-items: center;
+            gap: 8px;        /* 요소 간 간격 */
+        }
+        .row input {
+            padding: 2px 4px;    /* 위아래 2px, 좌우 4px로 축소 */
+        }
+        .row input,
+        .row select,
+        .row button {
+        min-width: 50px;      /* 최소값 유지 */
+        max-width: 400px;     /* 최대값 제한 */
+      }
+        .row input[type="text"],
+        .row input[type="number"] {
+            width: auto;         /* 내용에 맞게 */
+            min-width: 40px;     /* 최소 폭만 제한 */
+            max-width: 120px;    /* 너무 넓어지지 않게 제한 */
+            padding: 2px 4px;    /* 내부 여백 최소화 */
+        }
+        .row.wide button,
+        .row.wide select,
+        .row.wide input {
+            flex: 1;
+        }
+    </style>
+    <script>
+        function toggleOcr(id, btn) {
+            const el = document.getElementById(id);
+            const isHidden = el.style.display === "none";
+            el.style.display = isHidden ? "block" : "none";
+            btn.textContent = isHidden
+                ? btn.textContent.replace("보기", "닫기")
+                : btn.textContent.replace("닫기", "보기");
+        }
+    </script>
+</head>
+<body>
+    <!-- 업로드 UI -->
+    <div id="dropzone"
+        style="border:2px dashed #aaa;padding:10px;margin-bottom:10px;text-align:center;color:#666;">
+        이미지 업로드 (파일 선택 / 붙여넣기 Ctrl+V / 드래그 앤 드롭)
+    </div>
+    <input type="file" id="fileInput" />
+    <div id="uploadStatus" style="color:#007bff;font-weight:bold;"></div>
+
+    <!-- 전체 레이아웃 -->
+    <div id="container">
+        <!-- 좌측 검색 패널 -->
+        <div id="search-panel">
+        <h2>전체정보 열람하기 <span id="totalCount" style="font-weight:normal;"></span></h2>
+
+        <div class="row">
+            <label>레이드ID 입력: </label>
+            <input type="text" id="idSearchInput" placeholder="레이드 id로 검색">
+            <button id="idSearchBtn">검색</button>
+        </div>
+
+        <label>필터링으로 검색하기</label>
+        <div class="row">
+            <select id="recordBattleSelect" size="5" style="height: 120px; overflow-y: auto; flex:1;"></select>
+        </div>
+
+        <div class="row">
+            <select id="raidSelect"></select>
+            <select id="difficultySelect"></select>
+            <select id="gateSelect"></select>
+        </div>
+
+        <div class="row">
+            <select id="yearSelect"></select>
+            <select id="monthSelect"></select>
+            <select id="daySelect"></select>
+            <select id="hourSelect"></select>
+            <select id="minuteSelect"></select>
+        </div>
+
+        <div class="row">
+            <button id="loadByRecordBtn">불러오기(기록+전투)</button>
+        </div>
+
+        <label>기록정보+전투시간으로 검색하기</label>
+        <div class="row">
+            <input type="text" id="dateInput" placeholder="YYYYMMDD">
+            <input type="text" id="endTimeInput" placeholder="HHMMSS">
+            <input type="text" id="battleTimeInput" placeholder="전투시간MMSS">
+            <button id="searchBtn">검색</button>
+        </div>
+
+        <label>에스더 딜량 제외하기</label>
+        <div class="row">
+            <input type="number" id="estherDamage" placeholder="에스더 딜량 입력">
+            <button id="applyEsther">제외 후 계산</button>
+            <button id="resetChart">초기화</button>
+        </div>
+    </div>
+
+
+        <!-- 중앙 차트 -->
+        <div id="chart-panel" style="text-align:center;">
+            <canvas id="damageChart" style="width:100%; max-height:500px;"></canvas>
+        </div>
+
+        <!-- 우측 요약 -->
+        <div id="summary"></div>
+    </div>
+
+    <!-- OCR Raw Data 하단 전체 영역 -->
+    <div id="ocr-container">
+        <h3>OCR Raw Data</h3>
+        <div id="ocr-data-wrapper"></div>
+    </div>
+
+    <!-- 업로드 상태 표시 영역 -->
+    <div id="uploadStatus" style="margin-top:10px; color:blue;"></div>
+
+    <script>
+        const fileInput = document.getElementById("fileInput");
+        const dropzone = document.getElementById("dropzone");
+        const uploadStatus = document.getElementById("uploadStatus");
+        const idSearchInput = document.getElementById("idSearchInput");
+        const idSearchBtn = document.getElementById("idSearchBtn");
+
+        async function handleFile(file) {
+            uploadStatus.innerHTML = "이미지 업로드 중입니다...";
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            try {
+                const res = await fetch("/upload", { method: "POST", body: formData });
+                const data = await res.json();
+
+                if (data.error) {
+                    uploadStatus.innerHTML = `<span style="color:red;">에러: ${data.error}</span>`;
+                } else {
+                    uploadStatus.innerHTML = `
+                        업로드 완료! 레이드id: <b>${data.battle_id}</b><br>
+                        <a href="javascript:void(0)" id="viewNowLink">업로드한 데이터 바로 보기</a>
+                    `;
+
+                    await loadBattleDetail(data.battle_id);
+
+                    document.getElementById("viewNowLink").addEventListener("click", () => {
+                        recordBattleSelect.value = data.battle_id;
+                        loadBattleDetail(data.battle_id);
+                    });
+                }
+            } catch (err) {
+                uploadStatus.innerHTML = `<span style="color:red;">업로드 실패: ${err.message}</span>`;
+            }
+        }
+
+        fileInput.addEventListener("change", () => {
+            if (fileInput.files.length) handleFile(fileInput.files[0]);
+        });
+
+        document.addEventListener("paste", (e) => {
+            for (let item of e.clipboardData.items) {
+                if (item.type.indexOf("image") !== -1) {
+                    handleFile(item.getAsFile());
+                }
+            }
+        });
+
+        dropzone.addEventListener("dragover", (e) => e.preventDefault());
+        dropzone.addEventListener("drop", (e) => {
+            e.preventDefault();
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+        idSearchBtn.addEventListener("click", () => {
+            const id = idSearchInput.value.trim();
+            if (!id) return alert("레이드 id를 입력하세요!");
+
+            const optionExists = [...recordBattleSelect.options].some(opt => opt.value === id);
+            if (optionExists) {
+                recordBattleSelect.value = id;
+                loadBattleDetail(id);
+            } else {
+                alert("해당 레이드 id가 목록에 없습니다!");
+            }
+        });
+    </script>
+
+    <script>
+        const raidSelect = document.getElementById('raidSelect');
+        const difficultySelect = document.getElementById('difficultySelect');
+        const gateSelect = document.getElementById('gateSelect');
+        const recordBattleSelect = document.getElementById('recordBattleSelect');
+
+        const yearSelect = document.getElementById('yearSelect');
+        const monthSelect = document.getElementById('monthSelect');
+        const daySelect = document.getElementById('daySelect');
+        const hourSelect = document.getElementById('hourSelect');
+        const minuteSelect = document.getElementById('minuteSelect');
+
+        const dateInput = document.getElementById('dateInput');
+        const endTimeInput = document.getElementById('endTimeInput');
+        const battleTimeInput = document.getElementById('battleTimeInput');
+        const ctx = document.getElementById('damageChart').getContext('2d');
+
+        const estherInput = document.getElementById('estherDamage');
+        const applyBtn = document.getElementById('applyEsther');
+        const resetBtn = document.getElementById('resetChart');
+
+        const params = new URLSearchParams(window.location.search);
+        const battleIdParam = params.get('battle_id');
+
+        let chart, originalData, estherDamage = 0, battleData = [];
+        const rankColors = ['#FF4C4C','#4C8CFF','#FFD700','#4BC0C0','#9966FF','#FF9F40','#00BFA5','#999999'];
+
+        async function loadBattleList() {
+            const res = await fetch("/battle-list");
+            battleData = await res.json();
+
+            const raids = [...new Set(battleData.map(b => b.boss_name))];
+            raidSelect.innerHTML = `<option value="">레이드 선택</option>`;
+            raids.forEach(r => raidSelect.innerHTML += `<option value="${r}">${r}</option>`);
+
+            const difficulties = [...new Set(battleData.map(b => b.difficulty))];
+            difficultySelect.innerHTML = `<option value="">난이도 선택</option>`;
+            difficulties.forEach(d => difficultySelect.innerHTML += `<option value="${d}">${d}</option>`);
+
+            const gates = [...new Set(battleData.map(b => b.gate_number))];
+            gateSelect.innerHTML = `<option value="">관문 선택</option>`;
+            gates.forEach(g => gateSelect.innerHTML += `<option value="${g}">${g}관문</option>`);
+
+            populateYearOptions();
+            populateMonthOptions();
+            populateDayOptions();
+            populateHourOptions();
+            populateMinuteOptions();
+
+            updateRecordBattleSelect();
+
+            if (battleIdParam) {
+                loadBattleDetail(battleIdParam);
+            }
+        }
+
+        function populateYearOptions() {
+            const years = [...new Set(battleData.map(b => b.record_info.slice(0, 4)))];
+            yearSelect.innerHTML = `<option value="">연도 선택</option>`;
+            years.forEach(y => yearSelect.innerHTML += `<option value="${y}">${y}</option>`);
+        }
+
+        function populateMonthOptions() {
+            const months = [...new Set(battleData.map(b => b.record_info.slice(4, 6)))];
+            monthSelect.innerHTML = `<option value="">월 선택</option>`;
+            months.forEach(m => monthSelect.innerHTML += `<option value="${m}">${m}</option>`);
+        }
+
+        function populateDayOptions() {
+            const days = [...new Set(battleData.map(b => b.record_info.slice(6, 8)))];
+            daySelect.innerHTML = `<option value="">일 선택</option>`;
+            days.forEach(d => daySelect.innerHTML += `<option value="${d}">${d}</option>`);
+        }
+
+        function populateHourOptions() {
+            const hours = [...new Set(battleData.map(b => b.record_info.slice(8, 10)))];
+            hourSelect.innerHTML = `<option value="">시간 선택</option>`;
+            hours.forEach(h => hourSelect.innerHTML += `<option value="${h}">${h}시</option>`);
+        }
+
+        function populateMinuteOptions() {
+            const minutes = [...new Set(battleData.map(b => b.record_info.slice(10, 12)))];
+            minuteSelect.innerHTML = `<option value="">분 선택</option>`;
+            minutes.forEach(m => minuteSelect.innerHTML += `<option value="${m}">${m}분</option>`);
+        }
+
+        function updateRecordBattleSelect() {
+            recordBattleSelect.innerHTML = ``;
+
+            let matches = battleData;
+            if (raidSelect.value) matches = matches.filter(b => b.boss_name === raidSelect.value);
+            if (difficultySelect.value) matches = matches.filter(b => b.difficulty === difficultySelect.value);
+            if (gateSelect.value) matches = matches.filter(b => b.gate_number == gateSelect.value);
+            if (yearSelect.value) matches = matches.filter(b => b.record_info.slice(0, 4) === yearSelect.value);
+            if (monthSelect.value) matches = matches.filter(b => b.record_info.slice(4, 6) === monthSelect.value);
+            if (daySelect.value) matches = matches.filter(b => b.record_info.slice(6, 8) === daySelect.value);
+            if (hourSelect.value) matches = matches.filter(b => b.record_info.slice(8, 10) === hourSelect.value);
+            if (minuteSelect.value) matches = matches.filter(b => b.record_info.slice(10, 12) === minuteSelect.value);
+
+            document.getElementById("totalCount").textContent = `(총 ${matches.length}판)`;
+            matches.forEach(b => {
+                recordBattleSelect.innerHTML += `<option value="${b.id}">ID: ${b.id}</option>`;
+            });
+        }
+
+        [
+            raidSelect, difficultySelect, gateSelect,
+            yearSelect, monthSelect, daySelect, hourSelect, minuteSelect
+        ].forEach(select => {
+            select.addEventListener('change', updateRecordBattleSelect);
+        });
+
+        document.getElementById('loadByRecordBtn').addEventListener('click', () => {
+            if (!recordBattleSelect.value) return alert("전투를 선택하세요!");
+            loadBattleDetail(recordBattleSelect.value);
+        });
+
+        document.getElementById('searchBtn').addEventListener('click', () => {
+            const recordInfo = dateInput.value.trim() + endTimeInput.value.trim();
+            const battleTime = battleTimeInput.value.trim();
+
+            const battle = battleData.find(b =>
+                b.record_info === recordInfo && b.battle_time === battleTime
+            );
+
+            if (battle) {
+                loadBattleDetail(battle.id);
+            } else {
+                alert("조건에 맞는 전투 기록이 없습니다.");
+            }
+        });
+
+        async function loadBattleDetail(battleId) {
+            const res = await fetch(`/battle/${battleId}`);
+            const data = await res.json();
+            if (data.error) return alert(data.error);
+
+            originalData = data;
+            estherDamage = 0;
+            renderChart(data);
+        }
+
+        function renderChart(data) {
+            const totalHp = data.total_hp - estherDamage;
+            const totalDamage = data.total_damage;
+
+            const labels = data.players.map(p => p.role);
+            const values = data.players.map(p => p.damage);
+            const colors = data.players.map((_, idx) => rankColors[idx % rankColors.length]);
+
+            const remainingHp = Math.max(0, totalHp - totalDamage);
+            labels.push("남은 HP");
+            values.push(remainingHp);
+            colors.push('#EAEAEA');
+
+            if (chart) chart.destroy();
+            chart = new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels, datasets: [{ data: values, backgroundColor: colors }] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,   // 비율 유지 해제
+                    plugins: {
+                        legend: { display: true },
+                        title: { display: true, text: `${data.boss_name} (${data.difficulty}, ${data.gate_number}관문)` },
+                        datalabels: {
+                            color: '#000',
+                            font: { weight: 'bold', size: 13 },
+                            formatter: function (value, context) {
+                                const percent = ((value / totalHp) * 100).toFixed(2);
+                                return `${context.chart.data.labels[context.dataIndex]} (${percent}%)`;
+                            }
+                        }
+                    }
+                },
+                plugins: [ChartDataLabels]
+            });
+            // summary 업데이트
+            let summaryHtml = `
+                <p>총 HP: <b>${totalHp.toLocaleString()}</b>`;
+            if (estherDamage > 0) {
+                summaryHtml += ` <span style="color:red;">(에스더 ${estherDamage.toLocaleString()} 제외)</span>`;
+            }
+            summaryHtml += `</p>
+                <p>총 피해량: <b>${totalDamage.toLocaleString()}</b>
+                (${((totalDamage / totalHp) * 100).toFixed(2)}% 소모)</p><hr>
+            `;
+
+            data.players
+                .slice()
+                .sort((a, b) => b.damage - a.damage)
+                .forEach((p, idx) => {
+                    const percent = ((p.damage / totalHp) * 100).toFixed(2);
+                    summaryHtml += `
+                        <div style="display:flex;align-items:center;margin-bottom:4px;">
+                            <div style="width:14px;height:14px;background:${colors[idx]};margin-right:6px;border-radius:3px;"></div>
+                            <span>${p.role} : <b>${p.damage.toLocaleString()}</b> (${percent}%)</span>
+                        </div>
+                    `;
+                });
+            document.getElementById("summary").innerHTML = summaryHtml;
+
+            // OCR Raw Data는 하단 OCR 컨테이너에 따로 렌더링
+            let ocrHtml = "";
+            data.players.forEach((p, idx) => {
+                if (p.ocr_results && p.ocr_results.trim() !== "") {
+                    const divId = `ocr_${idx}`;
+                    ocrHtml += `
+                        <div style="background:#f8f8f8; padding:6px; border-radius:5px;">
+                            <button onclick="toggleOcr('${divId}', this)" 
+                                    style="font-size:11px; padding:4px; width: 100%;">
+                                ${p.role} - Raw Data 보기
+                            </button>
+                            <div id="${divId}" style="display:none; margin-top: 4px; border:1px solid #ddd;">
+                                <pre style="white-space: pre-wrap; font-size: 11px; margin:0; max-height:none;">
+                                    ${p.ocr_results}
+                                </pre>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+            document.getElementById("ocr-data-wrapper").innerHTML = ocrHtml;
+        }
+        window.addEventListener("resize", () => {
+            if (chart && originalData) {
+                chart.destroy();        // 기존 차트 삭제
+                renderChart(originalData); // 다시 그림
+            }
+        });
+        applyBtn.addEventListener('click', () => {
+            estherDamage = parseInt(estherInput.value) || 0;
+            renderChart(originalData);
+        });
+
+        resetBtn.addEventListener('click', () => {
+            estherInput.value = "";
+            estherDamage = 0;
+            renderChart(originalData);
+        });
+
+        loadBattleList();
+    </script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+FROM python:3.10
+
+WORKDIR /app
+
+# PaddleOCR 실행에 필요한 의존성 패키지 설치
+RUN apt-get update && apt-get install -y \
+    libgl1 \
+    libglib2.0-0 \
+    build-essential \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    ffmpeg \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# 로케일 설정
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+CMD ["celery", "-A", "worker.celery_app", "worker", "--loglevel=info","--pool=solo"]

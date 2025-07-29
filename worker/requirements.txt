@@ -1,0 +1,24 @@
+# Paddle 계열
+paddlepaddle==3.1.0
+paddleocr==3.1.0
+paddlex==3.1.3
+
+# Web
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+
+# DB
+sqlalchemy==2.0.31
+psycopg2-binary==2.9.9
+
+# Image/Video Processing
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+pyyaml
+
+# Multipart Upload
+python-multipart==0.0.9
+
+# Worker
+celery==5.3.6
+redis==5.0.3

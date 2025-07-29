@@ -1,0 +1,44 @@
+version: "3.9"
+services:
+  web:
+    build: ./web
+    container_name: battle-web
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://battle_user:1234@10.1.0.7:5432/battle_db
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./shared:/mnt/shared      # VM 내부 경로를 두 컨테이너 모두 마운트
+    depends_on:
+      - redis
+    networks:
+      - battle-net
+    restart: unless-stopped   # 여기 추가
+
+  worker:
+    build: ./worker
+    container_name: battle-worker
+    environment:
+      DATABASE_URL: postgresql://battle_user:1234@10.1.0.7:5432/battle_db
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./shared:/mnt/shared      # 동일하게 마운트
+    depends_on:
+      - redis
+    networks:
+      - battle-net
+    restart: unless-stopped   # 여기 추가
+
+  redis:
+    image: redis:7
+    container_name: battle-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - battle-net
+    restart: unless-stopped   # 여기 추가
+    
+networks:
+  battle-net:
+    driver: bridge
