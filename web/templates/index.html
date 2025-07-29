@@ -545,9 +545,12 @@
                                 // DPS 계산
                                 let dpsText = "";
                                 if (player && data.battle_time) {
-                                    // battle_time: "06:29" → 6분 29초 → 초 단위로 변환
-                                    const [min, sec] = data.battle_time.split(":").map(Number);
+                                    // battle_time: "0629" → 6분 29초 → 초 단위로 변환
+                                    const raw = data.battle_time.padStart(4, "0"); // 혹시 "629" 같은 형태도 대비
+                                    const min = Number(raw.slice(0, 2));
+                                    const sec = Number(raw.slice(2, 4));
                                     const totalSeconds = (min * 60) + sec;
+
                                     const dps = totalSeconds > 0 ? (player.damage / totalSeconds).toFixed(0) : 0;
                                     dpsText = `\nDPS: ${Number(dps).toLocaleString()}`;
                                 }
@@ -567,18 +570,27 @@
                     {
                         id: 'centerText',
                         afterDraw: (chart) => {
-                            const {ctx, chartArea: {width, height}} = chart;
+                            const { ctx, chartArea: { width, height, left, top } } = chart;
                             ctx.save();
                             ctx.font = 'bold 18px sans-serif';
                             ctx.fillStyle = '#333';
                             ctx.textAlign = 'center';
                             ctx.textBaseline = 'middle';
-                            
-                            // 전투 시간 표시할 데이터에서 가져오기
-                            const battleTime = data.battle_time || "00:00"; 
-                            ctx.fillText(`전투 시간`, width / 2, height / 2 - 12);
+
+                            // 정확한 중앙 좌표
+                            const centerX = left + width / 2;
+                            const centerY = top + height / 2;
+
+                            // 전투 시간 표시
+                            const raw = data.battle_time.padStart(4, "0");
+                            const min = raw.slice(0, 2);
+                            const sec = raw.slice(2, 4);
+                            const formattedTime = `${min}:${sec}`;
+
+                            ctx.fillText('전투 시간', centerX, centerY - 12);
                             ctx.font = 'bold 22px sans-serif';
-                            ctx.fillText(battleTime, width / 2, height / 2 + 12);
+                            ctx.fillText(formattedTime, centerX, centerY + 12);
+
                             ctx.restore();
                         }
                     }
