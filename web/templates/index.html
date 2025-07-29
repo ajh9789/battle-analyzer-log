@@ -172,8 +172,6 @@
         <div id="ocr-data-wrapper"></div>
     </div>
 
-    <!-- 업로드 상태 표시 영역 -->
-    <div id="uploadStatus" style="margin-top:10px; color:blue;"></div>
     <!-- 방문자, 업로드 카운팅 -->
     <script>
     async function loadStats() {
@@ -708,7 +706,38 @@
             estherDamage = 0;
             applyFilters();
         });
+        window.addEventListener("DOMContentLoaded", () => {
+            const excludeLowCheckbox = document.getElementById("excludeLowCheckbox");
+            if (excludeLowCheckbox) {
+                excludeLowCheckbox.addEventListener("change", applyFilters);
+            }
 
+            const fileInput = document.getElementById("fileInput");
+            const dropzone = document.getElementById("dropzone");
+
+            // 파일 선택 이벤트
+            fileInput.addEventListener("change", () => {
+                if (fileInput.files.length) handleFile(fileInput.files[0]);
+            });
+
+            // 복붙 이벤트
+            document.addEventListener("paste", (e) => {
+                for (let item of e.clipboardData.items) {
+                    if (item.type.indexOf("image") !== -1) {
+                        handleFile(item.getAsFile());
+                    }
+                }
+            });
+
+            // 드래그앤드롭 이벤트
+            dropzone.addEventListener("dragover", (e) => e.preventDefault());
+            dropzone.addEventListener("drop", (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files.length) {
+                    handleFile(e.dataTransfer.files[0]);
+                }
+            });
+        });
         loadBattleList();
     </script>
 </body>
