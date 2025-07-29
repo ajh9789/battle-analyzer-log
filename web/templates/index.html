@@ -105,6 +105,10 @@
         style="border:2px dashed #aaa;padding:10px;margin-bottom:10px;text-align:center;color:#666;">
         이미지 업로드 (파일 선택 / 붙여넣기 Ctrl+V / 드래그 앤 드롭) / 업로드 완료 : <span id="uploadCount">0</span>
     </div>
+    <div class="row">
+        <label>전투력 입력:</label>
+        <input type="number" id="playerPowerInput" placeholder="(선택)" step="100">
+    </div>
     <input type="file" id="fileInput" />
     <div id="uploadStatus" style="color:#007bff;font-weight:bold;"></div>
     <!-- 전체 레이아웃 -->
@@ -208,8 +212,11 @@
             uploadStatus.innerHTML = "이미지 업로드 중입니다... (수 초 소요)";
 
             const formData = new FormData();
+            const powerInput = document.getElementById("playerPowerInput");
             formData.append("file", file);
-
+            if (powerInput.value) {
+                formData.append("power", powerInput.value);   // 전투력 같이 보냄
+            }
             try {
                 // 1) 업로드 → Task ID 받기
                 const res = await fetch("/upload", { method: "POST", body: formData });
@@ -532,8 +539,25 @@
                             color: '#000',
                             font: { weight: 'bold', size: 13 },
                             formatter: function (value, context) {
+                                const player = data.players[context.dataIndex];
                                 const percent = ((value / totalHp) * 100).toFixed(2);
-                                return `${context.chart.data.labels[context.dataIndex]} (${percent}%)`;
+
+                                // DPS 계산
+                                let dpsText = "";
+                                if (player && data.battle_time) {
+                                    // battle_time: "06:29" → 6분 29초 → 초 단위로 변환
+                                    const [min, sec] = data.battle_time.split(":").map(Number);
+                                    const totalSeconds = (min * 60) + sec;
+                                    const dps = totalSeconds > 0 ? (player.damage / totalSeconds).toFixed(0) : 0;
+                                    dpsText = `\nDPS: ${Number(dps).toLocaleString()}`;
+                                }
+
+                                // 전투력과 함께 출력
+                                let label = `${context.chart.data.labels[context.dataIndex]} (${percent}%)`;
+                                if (player?.power) label += `\n전투력: ${player.power.toLocaleString()}`;
+                                if (dpsText) label += dpsText;
+
+                                return label;
                             }
                         }
                     }
@@ -579,7 +603,11 @@
                     summaryHtml += `
                         <div style="display:flex;align-items:center;margin-bottom:4px;">
                             <div style="width:14px;height:14px;background:${colors[idx]};margin-right:6px;border-radius:3px;"></div>
-                            <span>${p.role} : <b>${p.damage.toLocaleString()}</b> (${percent}%)</span>
+                            <span>
+                                ${p.role} : <b>${p.damage.toLocaleString()}</b> (${percent}%) 
+                                ${p.power ? `/ 전투력: <b>${p.power.toLocaleString()}</b>` : ""} 
+                                ${dps ? `/ DPS: <b>${dps.toLocaleString()}</b>` : ""}
+                            </span>
                         </div>
                     `;
                 });
