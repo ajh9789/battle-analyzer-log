@@ -286,18 +286,19 @@
         const checkbox = document.getElementById("excludeLowCheckbox");
 
         checkbox.addEventListener("change", () => {
-            // 1% 미만 제외할 플레이어 필터링
+            // total_hp를 기준으로 계산
+            const totalHp = originalData.total_hp;
+
             const filteredPlayers = checkbox.checked
-                ? originalData.players.filter(player => player.damage_ratio >= 1)
+                ? originalData.players.filter(p => (p.damage / totalHp) * 100 >= 1)
                 : originalData.players;
 
-            // total_damage를 다시 계산 (1% 미만 딜 제외)
+            // total_damage는 DB 값 그대로 유지 (or 그대로 재계산)
             const recalculatedTotalDamage = filteredPlayers.reduce((sum, p) => sum + p.damage, 0);
 
-            // 새로운 데이터로 교체 (total_damage와 players 모두 업데이트)
             const filteredData = {
                 ...originalData,
-                total_damage: recalculatedTotalDamage,
+                total_damage: originalData.total_damage, // total_damage는 수정하지 않음
                 players: filteredPlayers
             };
 
@@ -598,6 +599,9 @@
             });
             // summary 업데이트
             let summaryHtml = `
+                <p style="color:orange; font-weight:bold;">
+                    ※ 조력 피해 포함 시 100%를 초과할 수 있습니다
+                </p>
                 <p>총 HP: <b>${totalHp.toLocaleString()}</b>`;
             if (estherDamage > 0) {
                 summaryHtml += ` <span style="color:red;">(에스더 ${estherDamage.toLocaleString()} 제외)</span>`;
