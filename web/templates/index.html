@@ -616,13 +616,24 @@
                 .sort((a, b) => b.damage - a.damage)
                 .forEach((p, idx) => {
                     const percent = ((p.damage / totalHp) * 100).toFixed(2);
+
+                    // battle_time으로 DPS 계산 (여기서 계산해줘야 함)
+                    let dpsValue = "";
+                    if (data.battle_time) {
+                        const raw = data.battle_time.padStart(4, "0");
+                        const min = Number(raw.slice(0, 2));
+                        const sec = Number(raw.slice(2, 4));
+                        const totalSeconds = (min * 60) + sec;
+                        dpsValue = totalSeconds > 0 ? (p.damage / totalSeconds).toLocaleString() : "";
+                    }
+
                     summaryHtml += `
                         <div style="display:flex;align-items:center;margin-bottom:4px;">
                             <div style="width:14px;height:14px;background:${colors[idx]};margin-right:6px;border-radius:3px;"></div>
                             <span>
-                                ${p.role} : <b>${p.damage.toLocaleString()}</b> (${percent}%) 
-                                ${p.power ? `/ 전투력: <b>${p.power.toLocaleString()}</b>` : ""} 
-                                ${dps ? `/ DPS: <b>${dps.toLocaleString()}</b>` : ""}
+                            ${p.role} : <b>${p.damage.toLocaleString()}</b> (${percent}%) 
+                            ${p.power ? `</b>전투력: <b>${p.power.toLocaleString()}` : ""} 
+                            ${dpsValue ? `<br>DPS: <b>${dpsValue}</b>` : ""}
                             </span>
                         </div>
                     `;
