@@ -18,6 +18,8 @@ from sqlalchemy.orm import (
 from PIL import Image
 from celery.result import AsyncResult
 from celery import Celery
+from starlette.middleware.base import BaseHTTPMiddleware
+from fastapi import Request
 
 #파일 저장용 공통저장소
 upload_dir = "/mnt/shared/uploads"
@@ -111,10 +113,16 @@ def upsert_boss_info(boss_name, difficulty, gate_number, boss_hp):
     finally:
         db.close()
 
+# ================= 업로드 최대 3mb로 수정 =================
+class LimitUploadSizeMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # 업로드 최대 크기를 3MB로 설정
+        request._max_receive = 3 * 1024 * 1024  
+        return await call_next(request)
 
 # ================= FastAPI =================
 app = FastAPI()
-
+app.add_middleware(LimitUploadSizeMiddleware)
 
 @app.on_event("startup")
 def startup_event():
