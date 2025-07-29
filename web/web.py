@@ -6,7 +6,7 @@ import uuid
 import imghdr
 from datetime import datetime
 # ===== 외부 라이브러리 =====
-from fastapi import FastAPI, UploadFile, File, HTTPException, Path
+from fastapi import FastAPI, UploadFile, File, HTTPException, Path, Form
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from sqlalchemy import (
     create_engine, Column, Integer, String, BigInteger,
