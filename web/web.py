@@ -195,7 +195,7 @@ def battle_list():
     db = SessionLocal()
     try:
         battles = db.query(Battle).options(joinedload(Battle.boss))\
-                    .order_by(Battle.record_info.desc()).all()
+                    .order_by(Battle.created_at.desc()).all()
         return [
             {
                 "id": b.id,
