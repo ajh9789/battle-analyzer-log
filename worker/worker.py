@@ -254,6 +254,7 @@ def process_ocr(file_path: str, power: int = None):
 
             if exists:
                 exists.ocr_results = "\n".join(texts)
+                exists.power = power
                 db.commit()
             else:
                 db.add(
