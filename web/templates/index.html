@@ -283,26 +283,39 @@
         }
 
         // 1퍼 미만 딜러 지우기
-        const checkbox = document.getElementById("excludeLowCheckbox");
+        const excludeLowCheckbox = document.getElementById("excludeLowCheckbox");
+    function applyFilters() {
+        // 1) total_hp (에스더 데미지 제외 반영)
+        const totalHp = originalData.total_hp - estherDamage;
 
-        checkbox.addEventListener("change", () => {
-            // total_hp를 기준으로 계산
-            const totalHp = originalData.total_hp;
+        // 2) 1% 미만 제외 필터링
+        const filteredPlayers = excludeLowCheckbox.checked
+            ? originalData.players.filter(p => (p.damage / totalHp) * 100 >= 1)
+            : originalData.players;
 
-            const filteredPlayers = checkbox.checked
-                ? originalData.players.filter(p => (p.damage / totalHp) * 100 >= 1)
-                : originalData.players;
+        // 3) total_damage 다시 계산
+        const recalculatedTotalDamage = filteredPlayers.reduce((sum, p) => sum + p.damage, 0);
 
-            // total_damage는 DB 값 그대로 유지 (or 그대로 재계산)
-            const recalculatedTotalDamage = filteredPlayers.reduce((sum, p) => sum + p.damage, 0);
+        // 4) 필터링된 데이터 만들어서 renderChart 호출
+        const filteredData = {
+            ...originalData,
+            total_damage: recalculatedTotalDamage,
+            players: filteredPlayers
+        };
 
-            const filteredData = {
-                ...originalData,
-                total_damage: originalData.total_damage, // total_damage는 수정하지 않음
-                players: filteredPlayers
-            };
+        renderChart(filteredData);
+    }   
+        excludeLowCheckbox.addEventListener("change", applyFilters);
 
-            renderChart(filteredData);
+        applyBtn.addEventListener("click", () => {
+            estherDamage = parseInt(estherInput.value) || 0;
+            applyFilters();
+        });
+
+        resetBtn.addEventListener("click", () => {
+            estherInput.value = "";
+            estherDamage = 0;
+            applyFilters();
         });
 
         document.getElementById('resetFilterBtn').addEventListener('click', () => {
@@ -624,7 +637,10 @@
                         const min = Number(raw.slice(0, 2));
                         const sec = Number(raw.slice(2, 4));
                         const totalSeconds = (min * 60) + sec;
-                        dpsValue = totalSeconds > 0 ? (p.damage / totalSeconds).toLocaleString() : "";
+                        if (totalSeconds > 0) {
+                            // 소수점 없이 반올림하고 숫자 포맷
+                            dpsValue = Number((p.damage / totalSeconds).toFixed(0)).toLocaleString();
+                        }
                     }
 
                     summaryHtml += `
@@ -682,15 +698,15 @@
                 renderChart(originalData); // 다시 그림
             }
         });
-        applyBtn.addEventListener('click', () => {
+        applyBtn.addEventListener("click", () => {
             estherDamage = parseInt(estherInput.value) || 0;
-            renderChart(originalData);
+            applyFilters();
         });
 
-        resetBtn.addEventListener('click', () => {
+        resetBtn.addEventListener("click", () => {
             estherInput.value = "";
             estherDamage = 0;
-            renderChart(originalData);
+            applyFilters();
         });
 
         loadBattleList();
