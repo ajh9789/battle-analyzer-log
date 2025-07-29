@@ -14,7 +14,7 @@ psycopg2-binary==2.9.9
 # Image/Video Processing
 opencv-python-headless==4.9.0.80
 numpy==1.26.4
-pyyaml
+pyyaml==6.0.2
 
 # Multipart Upload
 python-multipart==0.0.9
