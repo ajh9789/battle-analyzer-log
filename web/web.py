@@ -73,6 +73,7 @@ class PlayerDamage(Base):
     battle_id = Column(Integer, ForeignKey("battle.id", ondelete="CASCADE"))
     role = Column(String, nullable=True)
     damage = Column(BigInteger, nullable=False)
+    power = Column(BigInteger, nullable=True)
     battle = relationship("Battle", backref="players")
     ocr_results = Column(String, nullable=True)  # OCR Raw Data 저장
 Base.metadata.create_all(bind=engine)
@@ -246,6 +247,7 @@ def battle_detail(battle_id: int):
                 "damage": p.damage,
                 "percent": round((p.damage / total_hp) * 100, 2),
                 "damage_ratio": round((p.damage / total_damage) * 100, 2),
+                "power": p.power,   # 전투력 추가 (nullable)
                 "ocr_results": getattr(p, "ocr_results", "") or ""  # OCR raw data
             })
 
@@ -263,7 +265,7 @@ def battle_detail(battle_id: int):
         db.close()
 
 @app.post("/upload")
-async def upload(file: UploadFile = File(...)):
+async def upload(file: UploadFile = File(...), power: int = Form(None)):
     allowed_types = ["image/png", "image/jpeg", "image/jpg"]
 
     # 확장자 / Content-Type 체크
@@ -290,7 +292,7 @@ async def upload(file: UploadFile = File(...)):
         # Celery를 통해 OCR 작업 전송
         task = celery_app.send_task(
             "ocr_tasks.process_ocr",           # Celery Task 이름
-            args=[final_path]                 # 인자 (파일 경로)               
+            args=[final_path, power]           # 인자 (파일 경로)               
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"시스템 오류! 전송 실패")

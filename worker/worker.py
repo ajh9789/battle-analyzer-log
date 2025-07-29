@@ -74,6 +74,7 @@ class PlayerDamage(Base):
     battle_id = Column(Integer, ForeignKey("battle.id", ondelete="CASCADE"))
     role = Column(String, nullable=True)
     damage = Column(BigInteger, nullable=False)
+    power = Column(BigInteger, nullable=True)
     battle = relationship("Battle", backref="players")
     ocr_results = Column(String, nullable=True)  # OCR Raw Data 저장
 
@@ -127,7 +128,7 @@ def parse_boss_info(boss_name_raw: str):
 
 # ===== Celery Task =====
 @celery_app.task(name="ocr_tasks.process_ocr")
-def process_ocr(file_path: str):
+def process_ocr(file_path: str, power: int = None):
     print(f"[DEBUG] Task 시작 - 파일경로: {file_path}")
     db = SessionLocal()
     padded_path = None  # 초기화
@@ -260,6 +261,7 @@ def process_ocr(file_path: str):
                         battle_id=battle.id,
                         role=role,
                         damage=int(damage_value),
+                        power=power,
                         ocr_results="\n".join(texts),
                     )
                 )
