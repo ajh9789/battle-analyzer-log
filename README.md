@@ -3,7 +3,7 @@
 OCR 기반으로 이미지에서 전투 정보를 인식하고, 웹 UI로 시각화하는 프로젝트입니다.
 FastAPI + Celery + Redis + PaddleOCR을 사용합니다.
 
-* **서비스 주소**: [https://lostark-log.duckdns.org](https://lostark-log.duckdns.org)
+**서비스 주소**: [https://lostark-log.duckdns.org](https://lostark-log.duckdns.org)
 
 ![전투 분석기 스크린샷](img/스크린샷%202025-07-31%20121742.png)
 
