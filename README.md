@@ -318,7 +318,7 @@ FastAPI + Celery + Redis + PaddleOCR을 사용합니다.
 ### 1) 업로드 파일 보안
 
 * **확장자(Content-Type) 이중 검증**
-  업로드 시 MIME 타입(`image/png`, `image/jpeg`)과 실제 확장자를 동시에 체크합니다.
+  업로드 시 타입(`image/png`, `image/jpeg`)과 실제 확장자를 동시에 체크합니다.
 
   ```python
   allowed_types = ["image/png", "image/jpeg"]
@@ -326,7 +326,7 @@ FastAPI + Celery + Redis + PaddleOCR을 사용합니다.
       raise HTTPException(status_code=400, detail="이미지 파일만 업로드 가능합니다.")
   ```
 * **`imghdr`로 실제 이미지 여부 확인**
-  악성 스크립트를 이미지로 위장하는 공격을 막기 위해 Python `imghdr`로 내부 시그니처를 확인합니다.
+  악성 스크립트를 이미지로 위장하는 공격을 막기 위해 Python `imghdr`로 확인합니다.
 
   ```python
   img_type = imghdr.what(temp_path)
