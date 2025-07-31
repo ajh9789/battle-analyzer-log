@@ -1,4 +1,4 @@
-# 전투 분석기 (Battle Analyzer)
+# 전투 분석기 로그 (Battle Analyzer log)
 
 OCR 기반으로 이미지에서 전투 정보를 인식하고, 웹 UI로 시각화하는 프로젝트입니다.
 FastAPI + Celery + Redis + PaddleOCR을 사용합니다.
