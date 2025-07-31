@@ -147,6 +147,22 @@ FastAPI + Celery + Redis + PaddleOCR을 사용합니다.
 
 ---
 
+## 사용자 요청 → 처리 흐름 요약
+
+```
+1. 사용자가 웹 UI에서 이미지 업로드
+   ↓ (POST /upload)
+2. 서버가 Celery Worker에게 OCR 작업 의뢰, task_id 반환
+   ↓ (GET /task/{task_id})
+3. 프론트엔드가 1초 간격으로 작업 상태 확인
+   ↓
+4. 작업이 완료되면 OCR 결과 + 전투 데이터 저장됨
+   ↓ (GET /battle/{battle_id})
+5. 차트 & 상세 정보 UI로 렌더링
+```
+
+---
+
 ## API 주요 엔드포인트
 
 * `POST /upload`: 이미지 업로드 → task\_id 반환
@@ -298,20 +314,6 @@ FastAPI + Celery + Redis + PaddleOCR을 사용합니다.
   * 웹 UI의 업로드 카운트 및 통계 표시용
 
 ---
-
-## 사용자 요청 → 처리 흐름 요약 (폴링 기반)
-
-```
-1. 사용자가 웹 UI에서 이미지 업로드
-   ↓ (POST /upload)
-2. 서버가 Celery Worker에게 OCR 작업 의뢰, task_id 반환
-   ↓ (GET /task/{task_id})
-3. 프론트엔드가 1초 간격으로 작업 상태 확인
-   ↓
-4. 작업이 완료되면 OCR 결과 + 전투 데이터 저장됨
-   ↓ (GET /battle/{battle_id})
-5. 차트 & 상세 정보 UI로 렌더링
-```
 
 ## 보안 관점에서 신경 쓴 부분
 
