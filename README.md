@@ -57,7 +57,7 @@ FastAPI + Celery + Redis + PaddleOCR을 사용합니다.
   * 고해상도 유저를 위한 이미지 업로드 용량 제한 완화(1MB > 3MB)
   * 전투력 입력 기능 추가
   * UI 개선 (전투 시간 위치 수정, DPS, 전투력 표시 추가)
-  * 중복 데이터 처리 로직 보완 ({record_info},{battle_time}에서 {boss_name}_{difficulty}_{gate_number} 추가)
+  * 중복 데이터 처리 로직 보완 ({record_info}, {battle_time}에서 {boss_name}, {difficulty}, {gate_number} 추가)
 * **사용 현황 (8/1 기준)**
 
   * 업로드 횟수 **193건** (이 중 약 60건은 테스트/운영자가 업로드)
@@ -134,7 +134,7 @@ FastAPI + Celery + Redis + PaddleOCR을 사용합니다.
 
 ---
 
-## 🔍 OCR 모델 (PaddleOCR)
+## OCR 모델 (PaddleOCR)
 
 - **모델명**: `korean_PP-OCRv5_mobile_rec` (PaddleOCR 3.0 기준)
 - **지원 언어**: 한국어, 영어, 숫자
