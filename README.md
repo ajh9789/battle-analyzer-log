@@ -5,100 +5,110 @@ FastAPI + Celery + Redis + PaddleOCR을 사용합니다.
 
 ---
 
+## 배포 환경
+
+* **서비스 주소**: [https://lostark-log.duckdns.org](https://lostark-log.duckdns.org)
+* **구성**
+
+  ```
+  [클라이언트 브라우저]
+          ↓ HTTPS (443)
+   [Nginx + Certbot]
+          ↓ 내부 프록시
+   [Docker Compose: web, worker, redis]
+  ```
+
+  1. **Nginx**: 리버스 프록시 역할
+
+     * `lostark-log.duckdns.org` 도메인으로 들어오는 트래픽을 FastAPI(`web`) 컨테이너로 전달
+     * 정적 리소스 캐싱 가능
+  2. **Certbot (Let's Encrypt)**:
+
+     * DuckDNS 도메인으로 SSL 인증서 발급 및 자동 갱신
+     * HTTPS 연결을 지원 (자동 80 → 443 리다이렉트)
+  3. **Docker Compose**:
+
+     * `web`(FastAPI) + `worker`(Celery) + `redis` 컨테이너를 내부 네트워크로 구동
+     * VM 내부에서 서비스 간 통신만 가능하게 분리
+  4. **VM 환경 (Azure)**:
+
+     * VM: `Standard_D4_v4` (4 vCPU, 16GB RAM)
+     * OS: Ubuntu 20.04 LTS
+     * DuckDNS를 사용해 동적 IP 자동 업데이트
+
+---
+
+## 🔍 OCR 모델 (PaddleOCR)
+
+- **모델명**: `korean_PP-OCRv5_mobile_rec` (PaddleOCR 3.0 기준)
+- **지원 언어**: 한국어, 영어, 숫자
+- **평균 인식정확도**: 약 **88.0%** (문장 내 모든 글자 일치 조건)
+- **모델 크기**: 약 14 MB (모바일 최적화)
+- **특징**:
+  - PP‑OCRv4 대비 정밀도 약 +13 % 향상 :contentReference[oaicite:25]{index=25}
+  - 한국어 정식 지원, 한글/숫자 텍스트 인식에 특화
+  - Standard_D4s_v4 4코어 CPU 환경에서도 1장에 5초정도 소모됨
+
+---
+
 ## 1. 폴더 구조
 
 ```
 .
-├── web/                  # FastAPI 웹 서버 (UI, API)
-├── worker/               # Celery Worker (OCR 처리)
-├── docker-compose.yml    # 컨테이너 구성
-├── requirements.txt      # Python 의존성 패키지
+├── web/                      # FastAPI 웹 서버 (UI, API)
+│   ├── templates/            # HTML 템플릿 디렉토리
+│   │   └── index.html        # 메인 UI 페이지
+│   ├── dockerfile            # web 컨테이너 Docker 빌드 설정
+│   ├── requirements.txt      # web 컨테이너 Python 의존성 패키지
+│   └── web.py                 # FastAPI 서버 엔트리포인트
+│
+├── worker/                   # Celery Worker (OCR 처리)
+│   ├── dockerfile            # worker 컨테이너 Docker 빌드 설정
+│   ├── requirements.txt      # worker 컨테이너 Python 의존성 패키지
+│   └── worker.py             # Celery Worker 엔트리포인트
+│
+├── shared/                   # web/worker 컨테이너가 공유하는 업로드 디렉토리 (자동 생성됨)
+│
+├── docker-compose.yml        # 컨테이너 구성
+├── requirements.txt          # 프로젝트 공용 Python 의존성 패키지
 └── .gitignore
+
 ```
-
----
-
-## 2. 서비스 구성 (docker-compose)
-
-```yaml
-version: "3.9"
-services:
-  web:
-    build: ./web
-    container_name: battle-web
-    ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql://battle_user:password@10.1.0.1:5432/battle_db
-      REDIS_URL: redis://redis:6379/0
-    volumes:
-      - ./shared:/mnt/shared
-    depends_on:
-      - redis
-    networks:
-      - battle-net
-    restart: unless-stopped
-
-  worker:
-    build: ./worker
-    container_name: battle-worker
-    environment:
-      DATABASE_URL: postgresql://battle_user:password@10.1.0.1:5432/battle_db
-      REDIS_URL: redis://redis:6379/0
-    volumes:
-      - ./shared:/mnt/shared
-    depends_on:
-      - redis
-    networks:
-      - battle-net
-    restart: unless-stopped
-
-  redis:
-    image: redis:7
-    container_name: battle-redis
-    ports:
-      - "6379:6379"
-    networks:
-      - battle-net
-    restart: unless-stopped
-
-networks:
-  battle-net:
-    driver: bridge
-```
-
----
-
-## 3. 실행 방법
-
-### 1) 의존성 설치
-
-```bash
-pip install -r requirements.txt
-```
-
-### 2) docker-compose로 실행
-
-```bash
-docker-compose up -d --build
-```
-
-* `http://localhost:8000` → 웹 UI 접속
-* 이미지 업로드 시 Celery Worker가 비동기적으로 OCR 처리
-
----
 
 ## 4. 주요 기능
 
-* **이미지 업로드**: PNG/JPG 업로드 시 자동으로 전투 정보 추출
-* **OCR 처리**: PaddleOCR 기반 보스 이름, 전투 시간, 딜량 인식
-* **데이터 저장**: PostgreSQL 기반 전투 기록, 플레이어 정보 저장
-* **웹 UI 시각화**
+### 1) 이미지 업로드 및 OCR 인식
 
-  * Doughnut 차트로 딜 비율 표시
-  * 전투 시간 중앙 표시
-  * 1% 미만 딜러 제외, 에스더 딜량 제외 필터
-  * OCR Raw Data 보기 지원
+* PNG/JPG 이미지 업로드 지원 (파일 선택 / 드래그 앤 드롭 / Ctrl+V 붙여넣기)
+* 업로드 시 전투력 입력 가능 (100 단위)
+* PaddleOCR 기반으로 **보스명, 전투 시간, 딜량** 자동 추출
+* 업로드 완료 후 자동으로 전투 상세 화면으로 이동
+
+### 2) 전투 기록 조회 & 검색
+
+* DB에 저장된 전투 기록을 최신순으로 목록 조회
+* **검색 기능**
+  * 레이드 ID 직접 검색
+  * 레이드 이름, 난이도, 관문, 날짜, 시간으로 필터링
+* 전체 업로드된 판수를 실시간 카운트로 표시
+
+### 3) 전투 상세 화면 (시각화)
+
+* 원형 차트로 플레이어별 딜량 비율 표시
+* **전투 시간 중앙 표시** (mm\:ss)
+* DPS 계산 및 전투력 표시
+* **필터링 검색 기능**
+  * 1% 미만 딜량 제외(인식을 잘못한 경우 제외시키기 위해)
+  * 에스더 딜량 제외 후 전체 데이터 재계산
+* 오른쪽 요약 패널에서 플레이어별 딜량/비율/전투력 상세 확인 가능
+
+### 4) OCR Raw Data 보기
+
+* 플레이어별 OCR 인식 원본 텍스트를 개별적으로 확인 및 세부정보를 확안할 수 있는 기능 제공
+
+### 5) 통계
+
+* 업로드 횟수를 실시간 통계로 제공
 
 ---
 
@@ -297,7 +307,7 @@ docker-compose up -d --build
 ### 2) XSS 방지
 
 * **Raw 데이터 출력 시 `innerHTML` 미사용**
-  클라이언트에서 OCR Raw Data나 사용자 입력값을 출력할 때 `innerHTML` 대신 `textContent`를 사용하여 스크립트 삽입(XSS) 차단.
+  혹시라도 OCR을 사용해서 악성 스크립트를 삽입 할 수도 있으니 클라이언트에서 OCR Raw Data나 사용자 입력값을 출력할 때 `innerHTML` 대신 `textContent`를 사용하여 스크립트 삽입(XSS) 차단.
 
   ```javascript
   const pre = document.createElement("pre");
@@ -321,11 +331,6 @@ docker-compose up -d --build
   ```
 
   → 자동으로 파라미터 바인딩 처리되므로 SQL Injection 방어됨.
-* **Unique Constraint & Validation**
-
-  * `battle_key`와 BossInfo(`boss_name`, `difficulty`, `gate_number`) 컬럼에 UniqueConstraint 적용 → 중복 입력 차단
-  * 모든 입력값은 사전에 검증 후 DB에 저장
-
 ---
 
 
@@ -337,25 +342,14 @@ docker-compose up -d --build
     혹시나 악성 스크립트 파일이 업로드되더라도 실행되지 않음.
   * 내부적으로 `FastAPI`와 `Celery Worker`가 파일을 읽기/삭제만 하며 외부 접근은 차단됨.
 
-* **Raw 파일 직접 다운로드 불가**
-
-  * `shared` 디렉토리를 정적 파일 경로로 노출하지 않았고,
-    파일 다운로드 API도 제공하지 않으므로 클라이언트가 업로드 파일 경로를 추측해 접근할 수 없음.
-
 ---
 
 ### 5) 서비스 안정성 & 기타
 
 * **Docker 재시작 정책**
   `restart: unless-stopped` 설정으로 서비스가 비정상 종료돼도 자동으로 재시작.
-* **에러 반환 설계**
-  비정상적인 입력이나 내부 오류 발생 시 항상 명확한 JSON 에러 메시지 반환
-
-  ```json
-  { "status": "FAIL", "error": "OCR 결과 없음" }
-  ```
 * **파일 업로드 크기 제한**
-  `LimitUploadSizeMiddleware` 로 업로드 파일 크기를 최대 3MB로 제한하여 Dos/대용량 공격 차단.
+  `LimitUploadSizeMiddleware` 로 업로드 파일 크기를 최대 3MB로 제한.
 
 ---
 
