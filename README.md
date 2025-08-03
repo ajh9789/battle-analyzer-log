@@ -141,7 +141,7 @@ FastAPI + Celery + Redis + PaddleOCR을 사용합니다.
 - **평균 인식정확도**: 약 **88.0%** (문장 내 모든 글자 일치 조건)
 - **모델 크기**: 약 14 MB (모바일 최적화)
 - **특징**:
-  - PP‑OCRv4 대비 정밀도 약 +13 % 향상 :contentReference[oaicite:25]{index=25}
+  - PP‑OCRv4 대비 정밀도 약 +13 % 향상
   - 한국어 정식 지원, 한글/숫자 텍스트 인식에 특화
   - Standard_D4s_v4 4코어 CPU 환경에서도 1장에 5초정도 소모됨
 
